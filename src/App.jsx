@@ -1,6 +1,8 @@
+
 import { useEffect, useState } from "react";
 import "./App.css";
 import Auth from "./Auth";
+import Dashboard from "./Dashboard";
 import FoodDonation from "./FoodDonation";
 import { supabase } from "./supabase";
 
@@ -14,7 +16,7 @@ const heroImages = [
 const campaigns = [
   {
     title: "Navratri Gift Donation",
-    image: "/festival-girls.jpg",
+    image: "/festival-girls.jpg.webp",
     icon: "🎁",
     description:
       "Bring happiness to children by donating gifts and essentials.",
@@ -46,12 +48,16 @@ function App() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  // Check login session and listen for login/logout changes
+  const [profileRole, setProfileRole] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Check login session
   useEffect(() => {
     let mounted = true;
 
-    const checkSession = async () => {
+    async function checkSession() {
       const { data, error } = await supabase.auth.getSession();
 
       if (!mounted) return;
@@ -64,7 +70,7 @@ function App() {
       }
 
       setAuthLoading(false);
-    };
+    }
 
     checkSession();
 
@@ -83,7 +89,7 @@ function App() {
     };
   }, []);
 
-  // Automatically change the hero image every 4 seconds
+  // Hero slider
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide(
@@ -91,10 +97,104 @@ function App() {
       );
     }, 4000);
 
-    return () => {
-      clearInterval(timer);
-    };
+    return () => clearInterval(timer);
   }, []);
+
+  // Load the user's role from profiles.
+  // Create a profile if one does not exist.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile() {
+      if (!session?.user) {
+        setProfileRole(null);
+        setProfileLoading(false);
+        return;
+      }
+
+      setProfileLoading(true);
+
+      const user = session.user;
+      const metadata = user.user_metadata || {};
+
+      try {
+        let { data: profile, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!profile) {
+          const requestedRole = [
+            "donor",
+            "volunteer",
+            "ngo",
+          ].includes(metadata.role)
+            ? metadata.role
+            : "donor";
+
+          const { error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: user.id,
+              full_name:
+                metadata.full_name ||
+                metadata.name ||
+                user.email ||
+                "",
+              role: requestedRole,
+              phone: user.phone || null,
+              verified: false,
+            });
+
+          if (insertError) {
+            // A signup trigger may have created the profile
+            // between the first read and this insert.
+            const { data: retryProfile, error: retryError } =
+              await supabase
+                .from("profiles")
+                .select("id, full_name, role")
+                .eq("id", user.id)
+                .maybeSingle();
+
+            if (retryError || !retryProfile) {
+              throw insertError;
+            }
+
+            profile = retryProfile;
+          } else {
+            profile = {
+              id: user.id,
+              full_name: metadata.full_name || user.email || "",
+              role: requestedRole,
+            };
+          }
+        }
+
+        if (!cancelled) {
+          setProfileRole(profile.role);
+        }
+      } catch (error) {
+        console.error("Profile loading failed:", error.message);
+
+        if (!cancelled) {
+          setProfileRole(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileLoading(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
 
   const goToDonation = () => {
     document.getElementById("donation")?.scrollIntoView({
@@ -103,9 +203,30 @@ function App() {
   };
 
   const goToFoodDonation = () => {
-    document.getElementById("food-donation")?.scrollIntoView({
+    const target =
+      profileRole === "donor" ? "food-donation" : "dashboard";
+
+    document.getElementById(target)?.scrollIntoView({
       behavior: "smooth",
     });
+  };
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        alert("Logout failed: " + error.message);
+      }
+    } catch (error) {
+      alert("Logout failed: " + error.message);
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -122,12 +243,31 @@ function App() {
           <a href="#about">About Us</a>
           <a href="#campaigns">Campaigns</a>
           <a href="#donation">Donate</a>
+          {session?.user && (
+            <a href="#dashboard">Dashboard</a>
+          )}
           <a href="#help">Contact</a>
         </nav>
 
-        <button className="nav-donate" onClick={goToDonation}>
-          Donate Now
-        </button>
+        <div className="nav-actions">
+          {session?.user && !authLoading && (
+            <button
+              type="button"
+              className="nav-logout"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              {loggingOut ? "Logging out..." : "Logout"}
+            </button>
+          )}
+
+          <button
+            className="nav-donate"
+            onClick={goToDonation}
+          >
+            Donate Now
+          </button>
+        </div>
       </header>
 
       <main>
@@ -163,7 +303,10 @@ function App() {
             </p>
 
             <div className="hero-buttons">
-              <button className="primary-btn" onClick={goToDonation}>
+              <button
+                className="primary-btn"
+                onClick={goToDonation}
+              >
                 Donate Now <span>♥</span>
               </button>
 
@@ -192,7 +335,8 @@ function App() {
           </div>
 
           <div className="hero-number">
-            <span>0{currentSlide + 1}</span> / 0{heroImages.length}
+            <span>0{currentSlide + 1}</span> / 0
+            {heroImages.length}
           </div>
         </section>
 
@@ -275,7 +419,10 @@ function App() {
         </section>
 
         {/* CAMPAIGNS */}
-        <section className="campaign-section section" id="campaigns">
+        <section
+          className="campaign-section section"
+          id="campaigns"
+        >
           <div className="section-heading">
             <span className="eyebrow">MAKE A DIFFERENCE</span>
             <h2>
@@ -289,9 +436,15 @@ function App() {
 
           <div className="campaign-grid">
             {campaigns.map((campaign) => (
-              <article className="campaign-card" key={campaign.title}>
+              <article
+                className="campaign-card"
+                key={campaign.title}
+              >
                 <div className="campaign-image-wrap">
-                  <img src={campaign.image} alt={campaign.title} />
+                  <img
+                    src={campaign.image}
+                    alt={campaign.title}
+                  />
                   <span className="campaign-icon">
                     {campaign.icon}
                   </span>
@@ -314,14 +467,19 @@ function App() {
         </section>
 
         {/* LOGIN / AUTH SECTION */}
-        <section className="donation-section section" id="donation">
+        <section
+          className="donation-section section"
+          id="donation"
+        >
           <div className="donation-intro">
             <span className="eyebrow">YOUR KINDNESS MATTERS</span>
+
             <h2>
               Be the Reason
               <br />
               Someone <span>Smiles Today</span>
             </h2>
+
             <p>
               Every contribution, big or small, can help someone in need.
               Join us in creating a world where food and kindness are
@@ -341,25 +499,28 @@ function App() {
             ) : session?.user ? (
               <div className="auth-success">
                 <h3>Welcome to FoodRescue! ❤️</h3>
-                <p>You are logged in and can donate food now.</p>
-                <button
-                  className="primary-btn"
-                  onClick={goToFoodDonation}
-                >
-                  Open Donation Form →
-                </button>
-                <button
-                  className="secondary-btn"
-                  onClick={async () => {
-                    const { error } = await supabase.auth.signOut();
 
-                    if (error) {
-                      console.error("Logout failed:", error.message);
-                    }
-                  }}
-                >
-                  Logout
-                </button>
+                {profileLoading ? (
+                  <p>Loading your profile...</p>
+                ) : (
+                  <>
+                    <p>
+                      Your role:{" "}
+                      <strong>
+                        {profileRole
+                          ? profileRole.toUpperCase()
+                          : "Not available"}
+                      </strong>
+                    </p>
+
+                    <button
+                      className="primary-btn"
+                      onClick={goToFoodDonation}
+                    >
+                      Open My Dashboard →
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <Auth />
@@ -367,26 +528,51 @@ function App() {
           </div>
         </section>
 
-        {/* FOOD DONATION FORM: LOGIN REQUIRED */}
+        {/* ROLE-BASED DASHBOARD */}
+        {session?.user && (
+          <section className="section" id="dashboard">
+            {profileLoading || authLoading ? (
+              <div className="section-heading">
+                <h2>Loading Your Dashboard...</h2>
+              </div>
+            ) : profileRole ? (
+              <Dashboard
+                key={`${session.user.id}-${profileRole}`}
+                user={session.user}
+                role={profileRole}
+              />
+            ) : (
+              <div className="section-heading">
+                <h2>Profile Not Available</h2>
+                <p>
+                  Your profile could not be loaded. Please refresh
+                  the page or log out and log in again.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* DONOR-ONLY FOOD DONATION FORM */}
         <section id="food-donation">
           {authLoading ? (
             <div className="section">
               <p>Checking your login...</p>
             </div>
-          ) : session?.user ? (
-            <FoodDonation />
-          ) : (
+          ) : !session?.user ? (
             <div className="section">
               <div className="section-heading">
-                <span className="eyebrow">SHARE FOOD, SPREAD HOPE</span>
+                <span className="eyebrow">
+                  SHARE FOOD, SPREAD HOPE
+                </span>
                 <h2>
                   Login to <span>Donate Food</span>
                 </h2>
                 <p>
-                  Please log in or create an account above to open the
-                  food donation form and share extra food with people
-                  in need.
+                  Please log in or create an account above to
+                  donate food and help people in need.
                 </p>
+
                 <button
                   className="primary-btn"
                   onClick={goToDonation}
@@ -395,6 +581,63 @@ function App() {
                 </button>
               </div>
             </div>
+          ) : profileLoading ? (
+            <div className="section">
+              <p>Loading your profile...</p>
+            </div>
+          ) : profileRole === "donor" ? (
+            <FoodDonation />
+          ) : profileRole === "volunteer" ? (
+            <div className="section section-heading">
+              <span className="eyebrow">VOLUNTEER DASHBOARD</span>
+              <h2>
+                Thank You for <span>Helping!</span>
+              </h2>
+              <p>
+                Available food donations aapke Dashboard mein hain.
+                Pickup aur delivery coordinate karne mein help karein.
+              </p>
+              <button
+                className="primary-btn"
+                onClick={() =>
+                  document
+                    .getElementById("dashboard")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                View Available Food →
+              </button>
+            </div>
+          ) : profileRole === "ngo" ? (
+            <div className="section section-heading">
+              <span className="eyebrow">NGO DASHBOARD</span>
+              <h2>
+                Coordinate Food <span>Support</span>
+              </h2>
+              <p>
+                Available donations dekhne aur apni community ke
+                liye food support coordinate karne ke liye dashboard
+                open karein.
+              </p>
+              <button
+                className="primary-btn"
+                onClick={() =>
+                  document
+                    .getElementById("dashboard")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                View Available Food →
+              </button>
+            </div>
+          ) : (
+            <div className="section section-heading">
+              <h2>Role Not Recognized</h2>
+              <p>
+                Aapke profile ka role donor, volunteer ya ngo hona
+                chahiye. Profile settings ko check karein.
+              </p>
+            </div>
           )}
         </section>
 
@@ -402,15 +645,20 @@ function App() {
         <section className="help-section section" id="help">
           <div className="help-content">
             <span className="eyebrow">LET'S WORK TOGETHER</span>
+
             <h2>
               Kindness Starts <span>With You</span>
             </h2>
+
             <p>
               Have a question or want to help? Take the first step
               toward making a difference today.
             </p>
 
-            <button className="primary-btn" onClick={goToDonation}>
+            <button
+              className="primary-btn"
+              onClick={goToDonation}
+            >
               Get Involved ❤️
             </button>
           </div>
@@ -424,6 +672,7 @@ function App() {
             <a href="#home" className="logo footer-logo">
               Food<span>Rescue</span> ♥
             </a>
+
             <p>
               Sharing food. Spreading hope. Building a kinder world,
               one meal at a time.
@@ -436,6 +685,7 @@ function App() {
             <a href="#about">About Us</a>
             <a href="#campaigns">Campaigns</a>
             <a href="#donation">Donate</a>
+            <a href="#dashboard">Dashboard</a>
           </div>
 
           <div className="footer-links">

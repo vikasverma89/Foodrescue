@@ -6,6 +6,7 @@ export default function Auth() {
   const [mode, setMode] = useState("signup");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("donor");
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -45,9 +46,8 @@ export default function Auth() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    showMessage("");
-
     setLoading(true);
+    showMessage("");
 
     try {
       let result;
@@ -57,6 +57,14 @@ export default function Auth() {
           throw new Error("Please enter your full name.");
         }
 
+        if (password.length < 6) {
+          throw new Error("Password must be at least 6 characters.");
+        }
+
+        if (role === "ngo" && !organizationName.trim()) {
+          throw new Error("Please enter your NGO name.");
+        }
+
         result = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -64,6 +72,8 @@ export default function Auth() {
             data: {
               full_name: fullName.trim(),
               role,
+              organization_name:
+                role === "ngo" ? organizationName.trim() : "",
             },
           },
         });
@@ -72,25 +82,22 @@ export default function Auth() {
 
         showMessage(
           result.data.session
-            ? "Account created successfully!"
-            : "Account created! Check your email to verify your account."
+            ? "Account created successfully! Welcome to FoodRescue."
+            : "Account created! Check your email to verify your account, then log in."
         );
-      }
-
-      else if (mode === "login") {
+      } else if (mode === "login") {
         result = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
 
         if (result.error) throw result.error;
-        showMessage("Login successful!");
-      }
 
-      else if (mode === "phone") {
+        showMessage("Login successful!");
+      } else if (mode === "phone") {
         if (!/^\+[1-9]\d{7,14}$/.test(phone.trim())) {
           throw new Error(
-            "Enter phone with country code, e.g. +919876543210."
+            "Enter your phone with country code, e.g. +919876543210."
           );
         }
 
@@ -101,6 +108,8 @@ export default function Auth() {
             data: {
               full_name: fullName.trim(),
               role,
+              organization_name:
+                role === "ngo" ? organizationName.trim() : "",
             },
           },
         });
@@ -109,9 +118,7 @@ export default function Auth() {
 
         showMessage("OTP sent! Enter the code received on your phone.");
         setMode("verifyOtp");
-      }
-
-      else if (mode === "verifyOtp") {
+      } else if (mode === "verifyOtp") {
         if (!/^\d{6}$/.test(otp.trim())) {
           throw new Error("Enter the 6-digit OTP.");
         }
@@ -123,10 +130,9 @@ export default function Auth() {
         });
 
         if (result.error) throw result.error;
-        showMessage("Phone verified! Login successful.");
-      }
 
-      else if (mode === "forgot") {
+        showMessage("Phone verified successfully!");
+      } else if (mode === "forgot") {
         if (!email.trim()) {
           throw new Error("Enter your registered email address.");
         }
@@ -143,9 +149,7 @@ export default function Auth() {
         showMessage(
           "If an account exists for this email, a password reset link will be sent."
         );
-      }
-
-      else if (mode === "resetPassword") {
+      } else if (mode === "resetPassword") {
         if (password.length < 6) {
           throw new Error("Password must be at least 6 characters.");
         }
@@ -175,6 +179,7 @@ export default function Auth() {
   const isResetMode = mode === "resetPassword";
 
   let heading = "Join the goodness.";
+
   if (mode === "login") heading = "Welcome back.";
   if (mode === "phone") heading = "Login with your phone.";
   if (mode === "verifyOtp") heading = "Verify your phone.";
@@ -219,11 +224,33 @@ export default function Auth() {
               id="foodrescue-role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
+              required
             >
-              <option value="donor">Food Donor</option>
-              <option value="ngo">NGO</option>
-              <option value="volunteer">Volunteer</option>
+              <option value="donor">Donor — Donate food</option>
+              <option value="volunteer">
+                Volunteer — Help with pickup and delivery
+              </option>
+              <option value="ngo">
+                NGO — Coordinate food distribution
+              </option>
             </select>
+
+            {role === "ngo" && (
+              <>
+                <label htmlFor="foodrescue-organization">
+                  NGO name
+                </label>
+                <input
+                  id="foodrescue-organization"
+                  value={organizationName}
+                  onChange={(e) =>
+                    setOrganizationName(e.target.value)
+                  }
+                  placeholder="Enter your NGO name"
+                  required
+                />
+              </>
+            )}
           </>
         )}
 
@@ -243,10 +270,25 @@ export default function Auth() {
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
-              <option value="donor">Food Donor</option>
-              <option value="ngo">NGO</option>
+              <option value="donor">Donor — Donate food</option>
               <option value="volunteer">Volunteer</option>
+              <option value="ngo">NGO</option>
             </select>
+
+            {role === "ngo" && (
+              <>
+                <label htmlFor="otp-organization">NGO name</label>
+                <input
+                  id="otp-organization"
+                  value={organizationName}
+                  onChange={(e) =>
+                    setOrganizationName(e.target.value)
+                  }
+                  placeholder="Enter your NGO name"
+                  required
+                />
+              </>
+            )}
           </>
         )}
 

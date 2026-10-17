@@ -27,26 +27,80 @@ export default function FoodDonation() {
     setIsError(false);
 
     try {
-      const { data, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-      if (userError || !data.user) {
-        throw new Error("Please pehle login karo, phir food donate karo.");
+      if (userError || !user) {
+        throw new Error("Pehle login karo, phir food donate karo.");
       }
 
-      const { error } = await supabase.from("food_listings").insert({
-        donor_id: data.user.id,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        quantity: Number(form.quantity),
-        food_type: form.food_type,
-        pickup_address: form.pickup_address.trim(),
-        pickup_deadline: new Date(form.pickup_deadline).toISOString(),
-        status: "available",
-      });
+      // Check that the logged-in user has a donor profile.
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, role")
+        .eq("id", user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (profileError) {
+        console.error("Profile check:", profileError);
+        throw new Error(
+          "Profile check nahi ho paya. Supabase profiles ki SELECT policy check karo."
+        );
+      }
+
+      if (!profile) {
+        throw new Error(
+          "Tumhara profile create nahi hua. Supabase signup trigger check karna hoga."
+        );
+      }
+
+      if (profile.role !== "donor") {
+        throw new Error(
+          `Tumhara profile role "${profile.role}" hai. Food donate karne ke liye donor role zaroori hai.`
+        );
+      }
+
+      const deadline = new Date(form.pickup_deadline);
+
+      if (
+        !form.pickup_deadline ||
+        Number.isNaN(deadline.getTime()) ||
+        deadline <= new Date()
+      ) {
+        throw new Error("Pickup deadline future mein select karo.");
+      }
+
+      const quantity = Number(form.quantity);
+
+      if (!Number.isInteger(quantity) || quantity < 1) {
+        throw new Error("Quantity kam se kam 1 serving honi chahiye.");
+      }
+
+      const { error: insertError } = await supabase
+        .from("food_listings")
+        .insert({
+          donor_id: user.id,
+          title: form.title.trim(),
+          description: form.description.trim(),
+          quantity,
+          food_type: form.food_type,
+          pickup_address: form.pickup_address.trim(),
+          pickup_deadline: deadline.toISOString(),
+          status: "available",
+        });
+
+      if (insertError) {
+        console.error("Food listing insert failed:", insertError);
+        throw new Error(
+          `Donation save nahi hui: ${insertError.message}`
+        );
+      }
 
       setMessage("Food donation successfully submit ho gayi! ❤️");
+      setIsError(false);
+
       setForm({
         title: "",
         description: "",
@@ -64,7 +118,10 @@ export default function FoodDonation() {
   }
 
   return (
-    <section className="food-donation-form-section section" id="food-donation">
+    <section
+      className="food-donation-form-section section"
+      id="food-donation"
+    >
       <div className="section-heading">
         <span className="eyebrow">SHARE FOOD, SPREAD HOPE</span>
         <h2>
@@ -131,7 +188,9 @@ export default function FoodDonation() {
           id="donation-deadline"
           name="pickup_deadline"
           type="datetime-local"
-          min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+          min={new Date(Date.now() + 60000)
+            .toISOString()
+            .slice(0, 16)}
           value={form.pickup_deadline}
           onChange={handleChange}
           required

@@ -1,0 +1,115 @@
+/* Add this file's contents to the END of src/App.css. Existing design rules are preserved. */
+.dashboard-section {
+  padding: 72px 20px;
+  background: #f7faf7;
+}
+.dashboard-container {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+.dashboard-heading { margin-bottom: 28px; }
+.dashboard-eyebrow {
+  margin: 0 0 8px;
+  color: #218653;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.dashboard-heading h2 {
+  margin: 0 0 10px;
+  color: #183d2a;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+}
+.dashboard-heading > p:not(.dashboard-eyebrow) { color: #5b6b60; }
+.dashboard-user { margin-top: 12px; font-size: .92rem; }
+.dashboard-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.dashboard-tabs button,
+.dashboard-card-actions button {
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 16px;
+  background: #247849;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dashboard-tabs button { background: #e5eee7; color: #244b33; }
+.dashboard-tabs button.active { background: #247849; color: white; }
+.dashboard-card-actions button:disabled { opacity: .65; cursor: wait; }
+.dashboard-notice, .dashboard-error {
+  padding: 12px 15px;
+  margin: 16px 0;
+  border-radius: 10px;
+}
+.dashboard-notice { color: #155b35; background: #e6f7ec; }
+.dashboard-error { color: #8a2525; background: #fff0f0; overflow-wrap: anywhere; }
+.dashboard-state, .dashboard-empty {
+  padding: 32px 20px;
+  text-align: center;
+  background: white;
+  border: 1px solid #e4ece5;
+  border-radius: 16px;
+}
+.dashboard-empty-icon { font-size: 2rem; }
+.dashboard-empty h3 { margin: 10px 0 6px; color: #183d2a; }
+.dashboard-empty p { color: #66756a; }
+.dashboard-listings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  gap: 18px;
+}
+.dashboard-listing-card {
+  min-width: 0;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e4ece5;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(28, 69, 43, .05);
+}
+.dashboard-card-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.dashboard-food-type, .dashboard-status, .live-activity-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: .75rem;
+  font-weight: 800;
+}
+.dashboard-food-type { background: #eaf5ed; color: #267145; }
+.dashboard-status { background: #edf0ed; color: #45554a; }
+.status-available { background: #e5f7e9; color: #176438; }
+.status-accepted { background: #fff3d8; color: #805300; }
+.status-picked_up { background: #e5f0ff; color: #174e8b; }
+.status-delivered { background: #dff5ed; color: #17694b; }
+.dashboard-listing-card h3 { margin: 16px 0 8px; color: #183d2a; font-size: 1.25rem; }
+.dashboard-listing-card > p { color: #68766b; line-height: 1.55; }
+.dashboard-details { margin-top: 18px; }
+.dashboard-details p { margin: 9px 0; overflow-wrap: anywhere; color: #46564a; }
+.dashboard-details a { color: #1e7546; font-weight: 700; }
+.dashboard-donor { margin-top: 14px; padding-top: 12px; border-top: 1px solid #edf1ed; }
+.dashboard-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.dashboard-muted, .dashboard-complete { font-size: .88rem; color: #597060; }
+.dashboard-complete { color: #17694b; font-weight: 800; }
+.live-activity {
+  margin-top: 38px;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e4ece5;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(28, 69, 43, .05);
+}
+.live-activity-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.live-activity-heading h3 { display: flex; align-items: center; gap: 9px; margin: 0; color: #183d2a; font-size: 1.35rem; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: #e34242; box-shadow: 0 0 0 4px #ffe8e8; }
+.live-activity-badge { color: #b52d2d; background: #fff0f0; letter-spacing: .05em; }
+.live-activity-intro { color: #68766b; }
+.live-activity-list { list-style: none; margin: 18px 0 0; padding: 0; }
+.live-activity-item { display: flex; align-items: flex-start; gap: 13px; padding: 15px 0; border-top: 1px solid #edf1ed; }
+.live-activity-icon { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 12px; background: #edf7ef; }
+.live-activity-content p { margin: 0 0 5px; color: #334b39; line-height: 1.45; }
+.live-activity-content time { color: #7b887e; font-size: .8rem; }
+.live-activity-empty { color: #68766b; padding: 14px 0; }
+@media (max-width: 600px) {
+  .dashboard-section { padding: 48px 14px; }
+  .dashboard-listing-card, .live-activity { padding: 18px; }
+  .dashboard-card-actions button { width: 100%; }
+}
